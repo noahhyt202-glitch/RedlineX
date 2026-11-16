@@ -1,36 +1,47 @@
 --[[
-	RedlineX  ·  UI library  ·  v1.0
-	Glossy dark glass, red→orange "redline" accent, smooth everything.
+	RedlineX  ·  UI library  ·  v2.0
+	Glossy dark glass, "redline" accent, smooth everything.
 
-	local RedlineX = loadstring(readfile("RedlineX.lua"))()
-	local Win = RedlineX:CreateWindow({ Title = "My Hub", Subtitle = "by me", ToggleKey = Enum.KeyCode.RightShift })
+	local RedlineX = loadstring(game:HttpGet("https://raw.githubusercontent.com/noahhyt202-glitch/RedlineX/refs/heads/main/RedlineX3x"))()
+	local Win = RedlineX:CreateWindow({ Title = "My Hub", Subtitle = "by me", ToggleKey = Enum.KeyCode.RightShift, Theme = "Redline", Intro = true })
 	local Main = Win:Tab({ Name = "Main", Icon = "⚡", Desc = "the good stuff" })
 
-	Main:Section("Combat-free stuff")
-	Main:Toggle({ Name = "Auto thing", Desc = "does the thing", Default = true, Flag = "auto", Callback = function(on) end })
-	Main:Slider({ Name = "Speed", Min = 0, Max = 100, Default = 50, Step = 1, Suffix = "%", Flag = "speed", Callback = function(v) end })
+	Main:Section("Stuff")
+	Main:Toggle({ Name = "Auto thing", Desc = "does the thing", Tooltip = "hover text", Default = true, Flag = "auto", Callback = function(on) end })
+	Main:Slider({ Name = "Speed", Min = 0, Max = 100, Default = 50, Step = 1, Suffix = "%", Flag = "speed", Callback = function(v) end })  -- click the number to type
 	Main:Dropdown({ Name = "Mode", Options = { "Safe", "Fast" }, Default = "Safe", Flag = "mode", Callback = function(v) end })
-	Main:Dropdown({ Name = "Pick many", Options = { "A", "B", "C" }, Multi = true, Default = { "A" }, Callback = function(list) end })
-	Main:Keybind({ Name = "Panic", Default = Enum.KeyCode.P, Callback = function() end })   -- Callback = pressed
+	Main:Dropdown({ Name = "Pick many", Options = { "A", "B" }, Multi = true, Default = { "A" }, Callback = function(list) end })
+	Main:Keybind({ Name = "Panic", Default = Enum.KeyCode.P, Callback = function() end })
 	Main:Input({ Name = "Name", Placeholder = "type…", Callback = function(text, enter) end })
-	Main:ColorPicker({ Name = "Color", Callback = function(c) end })
+	Main:ColorPicker({ Name = "Color", Default = Color3.fromRGB(255,0,0), Callback = function(c) end })   -- swatches + full picker
+	Main:Progress({ Name = "Loading", Default = 0.3 })   -- :Set(0..1)
 	Main:Button({ Name = "Do it", Desc = "click me", Callback = function() end })
 	Main:Label("plain text")      Main:Paragraph({ Title = "Hi", Content = "long text…" })
-	Win:SettingsTab()             -- theme / toggle key / configs / unload, prebuilt
+	local L, R = Main:Row()       -- two columns, use L:Toggle(...), R:PieChart(...)
+	local G = Main:Group({ Name = "More", Open = true })   -- collapsible card, use G:Slider(...)
+	Main:LineChart({ Name = "Wins", Data = { 2, 5, 3, 7, 6, 9 } })          -- :Set(newData)
+	Main:PieChart({ Name = "Results", Data = { { "Wins", 60 }, { "Losses", 30 }, { "Draws", 10 } } })
+	Main:DonutChart({ Name = "Files", Center = "100", Data = { { "Scripts", 42 }, { "Meshes", 12 } } })
+	Win:SettingsTab()             -- themes / accent / glass / watermark / toggle key / configs / unload
 
-	RedlineX:Notify({ Title = "Done", Content = "it worked", Type = "success", Duration = 4 })  -- info/success/warning/error
-	RedlineX.Flags.speed          RedlineX:SaveConfig("main")   RedlineX:LoadConfig("main")
-	RedlineX:SetAccent(Color3.fromRGB(80,160,255))    Win:Toggle()    Win:Destroy()
+	-- key system (run BEFORE CreateWindow):
+	if not RedlineX:KeySystem({ Title = "My Hub", Keys = { "my-key" }, GetKeyLink = "https://...", SaveKey = true }) then return end
+
+	RedlineX:Notify({ Title = "Done", Content = "it worked", Type = "success", Duration = 4 })   -- info/success/warning/error
+	Win:Dialog({ Title = "Sure?", Content = "This can't be undone.", Buttons = { { "Yes", function() end }, { "Cancel" } } })
+	Win:Watermark(true)    RedlineX:SetTheme("Ocean")    RedlineX:SetAccent(Color3.fromRGB(80,160,255))
+	RedlineX.Flags.speed   RedlineX:SaveConfig("main")   RedlineX:LoadConfig("main")   Win:Toggle()   Win:Destroy()
 	Every element returns an object with :Set(value) and :Get().
 ]]
 
-local RedlineX = { Flags = {}, Version = "1.0", _setters = {} }
+local RedlineX = { Flags = {}, Version = "2.0", _setters = {}, ThemeName = "Redline" }
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local TextService = game:GetService("TextService")
+local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
 
 local Theme = {
@@ -49,9 +60,18 @@ local Theme = {
 	Error = Color3.fromRGB(255, 70, 92),
 }
 RedlineX.Theme = Theme
+RedlineX.Themes = {
+	Redline = { Color3.fromRGB(255, 46, 77), Color3.fromRGB(255, 128, 64) },
+	Midnight = { Color3.fromRGB(120, 110, 255), Color3.fromRGB(190, 110, 255) },
+	Ocean = { Color3.fromRGB(40, 160, 255), Color3.fromRGB(50, 225, 210) },
+	Emerald = { Color3.fromRGB(40, 215, 130), Color3.fromRGB(170, 235, 90) },
+	Sakura = { Color3.fromRGB(255, 100, 175), Color3.fromRGB(255, 175, 215) },
+	Gold = { Color3.fromRGB(255, 185, 40), Color3.fromRGB(255, 120, 40) },
+	Ice = { Color3.fromRGB(130, 200, 255), Color3.fromRGB(225, 240, 255) },
+}
 local FONT, FONT_B, FONT_BL = Enum.Font.Gotham, Enum.Font.GothamBold, Enum.Font.GothamBlack
 local LEFT, CENTER, RIGHT = Enum.TextXAlignment.Left, Enum.TextXAlignment.Center, Enum.TextXAlignment.Right
-local MB1, TOUCH = Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch
+local MB1, TOUCH, MOVE = Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch, Enum.UserInputType.MouseMovement
 
 -- ===================== helpers =====================
 local function new(class, props, parent)
@@ -77,7 +97,6 @@ local function text(parent, props)
 	for k, v in pairs(props) do base[k] = v end
 	return new("TextLabel", base, parent)
 end
--- top-lit sheen: the "gloss"
 local function gloss(o) return new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(200, 200, 212)) }, o) end
 local accentGrads, accentFns = {}, {}
 local function accentGradient(o, rot)
@@ -93,6 +112,12 @@ local function toKey(k)
 		if ok then return e end
 	end
 	return Enum.KeyCode.Unknown
+end
+local function toHex(c) return string.format("#%02X%02X%02X", math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5)) end
+local function fromHex(s)
+	s = tostring(s):gsub("[^%x]", "")
+	if #s ~= 6 then return nil end
+	return Color3.fromRGB(tonumber(s:sub(1, 2), 16), tonumber(s:sub(3, 4), 16), tonumber(s:sub(5, 6), 16))
 end
 local function guiParent()
 	local ok, h = pcall(function() return gethui and gethui() end)
@@ -113,6 +138,13 @@ function RedlineX:SetAccent(a, b)
 	end
 	for _, fn in ipairs(accentFns) do pcall(fn) end
 end
+function RedlineX:SetTheme(name)
+	local t = RedlineX.Themes[name]
+	if not t then return false end
+	RedlineX.ThemeName = name
+	RedlineX:SetAccent(t[1], t[2])
+	return true
+end
 
 -- ===================== notifications =====================
 local notifyHolder
@@ -120,38 +152,40 @@ local function getNotifyHolder()
 	if notifyHolder and notifyHolder.Parent and notifyHolder.Parent.Parent then return notifyHolder end
 	local g = new("ScreenGui", { Name = "RedlineX_Notify", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 100,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, guiParent())
-	notifyHolder = new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -18), Size = UDim2.fromOffset(310, 600),
-		BackgroundTransparency = 1 }, g)
+	notifyHolder = new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -18), Size = UDim2.fromOffset(320, 600), BackgroundTransparency = 1 }, g)
 	new("UIListLayout", { VerticalAlignment = Enum.VerticalAlignment.Bottom, HorizontalAlignment = Enum.HorizontalAlignment.Right,
 		Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, notifyHolder)
 	return notifyHolder
 end
 local nCount = 0
+local ICONS = { info = "i", success = "✓", warning = "!", error = "✕" }
 function RedlineX:Notify(o)
 	o = o or {}
 	local kind = o.Type or "info"
 	local col = (kind == "success" and Theme.Success) or (kind == "warning" and Theme.Warning) or (kind == "error" and Theme.Error) or Theme.Accent
 	local dur = o.Duration or 4
 	local content = tostring(o.Content or "")
-	local h = TextService:GetTextSize(content, 12, FONT, Vector2.new(254, 1000)).Y
+	local h = TextService:GetTextSize(content, 12, FONT, Vector2.new(240, 1000)).Y
 	nCount += 1
-	local wrap = new("Frame", { Size = UDim2.fromOffset(310, 48 + h + 10), BackgroundTransparency = 1, LayoutOrder = nCount }, getNotifyHolder())
-	local card = new("Frame", { Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(340, 0), BackgroundColor3 = Theme.Surface }, wrap)
+	local wrap = new("Frame", { Size = UDim2.fromOffset(320, math.max(58, 46 + h + 10)), BackgroundTransparency = 1, LayoutOrder = nCount }, getNotifyHolder())
+	local card = new("Frame", { Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(350, 0), BackgroundColor3 = Theme.Surface }, wrap)
 	corner(card, 12)
 	stroke(card, Theme.Stroke)
 	gloss(card)
-	local bar = new("Frame", { Size = UDim2.new(0, 3, 1, -22), Position = UDim2.fromOffset(11, 11), BackgroundColor3 = col, BorderSizePixel = 0 }, card)
-	corner(bar, 2)
-	text(card, { Text = o.Title or "RedlineX", Position = UDim2.fromOffset(25, 11), Size = UDim2.new(1, -38, 0, 17), Font = FONT_BL, TextSize = 14 })
-	text(card, { Text = content, Position = UDim2.fromOffset(25, 31), Size = UDim2.new(1, -38, 0, h), Font = FONT, TextSize = 12, TextColor3 = Theme.Dim,
+	local icon = new("Frame", { Size = UDim2.fromOffset(28, 28), Position = UDim2.fromOffset(12, 12), BackgroundColor3 = col, BackgroundTransparency = 0.82 }, card)
+	corner(icon, 14)
+	stroke(icon, col, 0.4)
+	text(icon, { Text = ICONS[kind] or "i", Size = UDim2.fromScale(1, 1), Font = FONT_BL, TextSize = 14, TextColor3 = col, TextXAlignment = CENTER })
+	text(card, { Text = o.Title or "RedlineX", Position = UDim2.fromOffset(50, 11), Size = UDim2.new(1, -62, 0, 17), Font = FONT_BL, TextSize = 14 })
+	text(card, { Text = content, Position = UDim2.fromOffset(50, 30), Size = UDim2.new(1, -62, 0, h), Font = FONT, TextSize = 12, TextColor3 = Theme.Dim,
 		TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top })
-	local prog = new("Frame", { Size = UDim2.new(1, -22, 0, 2), Position = UDim2.new(0, 11, 1, -6), BackgroundColor3 = col, BorderSizePixel = 0, BackgroundTransparency = 0.25 }, card)
+	local prog = new("Frame", { Size = UDim2.new(1, -24, 0, 2), Position = UDim2.new(0, 12, 1, -6), BackgroundColor3 = col, BorderSizePixel = 0, BackgroundTransparency = 0.25 }, card)
 	corner(prog, 1)
-	tween(card, 0.45, { Position = UDim2.fromOffset(0, 0) })
+	tween(card, 0.5, { Position = UDim2.fromOffset(0, 0) }, Enum.EasingStyle.Back)
 	tween(prog, dur, { Size = UDim2.new(0, 0, 0, 2) }, Enum.EasingStyle.Linear)
 	task.delay(dur, function()
 		if not card.Parent then return end
-		tween(card, 0.4, { Position = UDim2.fromOffset(340, 0) })
+		tween(card, 0.4, { Position = UDim2.fromOffset(350, 0) })
 		task.wait(0.42)
 		wrap:Destroy()
 	end)
@@ -174,7 +208,7 @@ end
 function RedlineX:SaveConfig(name)
 	if not writefile then return false end
 	pcall(makefolder, "RedlineX")
-	local t = {}
+	local t = { __theme = RedlineX.ThemeName }
 	for k, v in pairs(RedlineX.Flags) do t[k] = ser(v) end
 	return pcall(writefile, "RedlineX/" .. (name or "default") .. ".json", HttpService:JSONEncode(t))
 end
@@ -183,6 +217,7 @@ function RedlineX:LoadConfig(name)
 	if not (isfile and isfile(path)) then return false end
 	local ok, data = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
 	if not ok then return false end
+	if data.__theme then RedlineX:SetTheme(data.__theme) end
 	for flag, v in pairs(data) do
 		local s = RedlineX._setters[flag]
 		if s then pcall(s, deser(v)) end
@@ -195,13 +230,22 @@ local Elements = {}
 Elements.__index = Elements
 function Elements:_next() self._order += 1 return self._order end
 
-local function Card(self, h)
-	local f = new("Frame", { Size = UDim2.new(1, 0, 0, h), BackgroundColor3 = Theme.Surface, LayoutOrder = self:_next() }, self._container)
+Theme.CardT = 0.25 -- glass: how see-through cards are (set per window)
+local function Card(self, h, o)
+	local f = new("Frame", { Size = UDim2.new(1, 0, 0, h), BackgroundColor3 = Theme.Surface, BackgroundTransparency = Theme.CardT, LayoutOrder = self:_next() }, self._container)
 	corner(f, 10)
 	gloss(f)
 	local st = stroke(f, Theme.Stroke)
-	f.MouseEnter:Connect(function() tween(st, 0.2, { Color = Theme.Stroke:Lerp(Theme.Accent, 0.45) }) end)
-	f.MouseLeave:Connect(function() tween(st, 0.2, { Color = Theme.Stroke }) end)
+	if o and o.Name then f:SetAttribute("RX_Name", tostring(o.Name)) end
+	local win = self._window
+	f.MouseEnter:Connect(function()
+		tween(st, 0.2, { Color = Theme.Stroke:Lerp(Theme.Accent, 0.45) })
+		if o and o.Tooltip then win._tip(o.Tooltip) end
+	end)
+	f.MouseLeave:Connect(function()
+		tween(st, 0.2, { Color = Theme.Stroke })
+		if o and o.Tooltip then win._tip(nil) end
+	end)
 	return f, st
 end
 local function Titles(f, name, desc, rightSpace)
@@ -214,12 +258,12 @@ local function Titles(f, name, desc, rightSpace)
 		text(f, { Text = name or "", Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -rightSpace, 1, 0) })
 	end
 end
-local function register(o, setter)
-	if o.Flag then RedlineX._setters[o.Flag] = setter end
-end
+local function register(o, setter) if o.Flag then RedlineX._setters[o.Flag] = setter end end
+local function hasDesc(o) return o.Desc and o.Desc ~= "" end
 
 function Elements:Section(name)
 	local f = new("Frame", { Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, LayoutOrder = self:_next() }, self._container)
+	f:SetAttribute("RX_Section", true)
 	local bar = new("Frame", { Size = UDim2.fromOffset(3, 12), Position = UDim2.new(0, 2, 1, -15), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, f)
 	corner(bar, 2)
 	accentGradient(bar, 90)
@@ -230,7 +274,7 @@ end
 function Elements:Toggle(o)
 	o = o or {}
 	local value = o.Default == true
-	local f = Card(self, (o.Desc and o.Desc ~= "") and 54 or 44)
+	local f = Card(self, hasDesc(o) and 54 or 44, o)
 	Titles(f, o.Name, o.Desc, 80)
 	local track = new("Frame", { Size = UDim2.fromOffset(44, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), BackgroundColor3 = Theme.Surface3 }, f)
 	corner(track, 12)
@@ -245,7 +289,8 @@ function Elements:Toggle(o)
 	local obj = {}
 	local function render()
 		tween(fill, 0.22, { BackgroundTransparency = value and 0 or 1 })
-		tween(knob, 0.25, { Position = value and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0), BackgroundColor3 = value and Color3.new(1, 1, 1) or Color3.fromRGB(200, 200, 214) })
+		tween(knob, 0.3, { Position = value and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0), BackgroundColor3 = value and Color3.new(1, 1, 1) or Color3.fromRGB(200, 200, 214) },
+			Enum.EasingStyle.Back)
 	end
 	function obj:Set(v, silent)
 		value = v and true or false
@@ -267,15 +312,16 @@ function Elements:Slider(o)
 	local frac = tostring(step):match("%.(%d+)")
 	if frac then dec = #frac end
 	local value = math.clamp(o.Default or min, min, max)
-	local hasDesc = o.Desc and o.Desc ~= ""
-	local f = Card(self, hasDesc and 70 or 56)
+	local f = Card(self, hasDesc(o) and 70 or 56, o)
 	text(f, { Text = o.Name or "", Position = UDim2.fromOffset(14, 9), Size = UDim2.new(1, -120, 0, 17) })
-	if hasDesc then
+	if hasDesc(o) then
 		text(f, { Text = o.Desc, Position = UDim2.fromOffset(14, 27), Size = UDim2.new(1, -120, 0, 14), Font = FONT, TextSize = 11, TextColor3 = Theme.Dim })
 	end
-	local valBox = new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 8), Size = UDim2.fromOffset(78, 22), BackgroundColor3 = Theme.Surface3,
-		Font = FONT_B, TextSize = 12, TextColor3 = Theme.Text, Text = "" }, f)
+	-- the value box doubles as a text field: click it and type an exact number
+	local valBox = new("TextBox", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 8), Size = UDim2.fromOffset(78, 22), BackgroundColor3 = Theme.Surface3,
+		Font = FONT_B, TextSize = 12, TextColor3 = Theme.Text, Text = "", ClearTextOnFocus = false, ZIndex = 6 }, f)
 	corner(valBox, 6)
+	local vst = stroke(valBox, Theme.Stroke)
 	local bar = new("Frame", { Position = UDim2.new(0, 14, 1, -17), Size = UDim2.new(1, -28, 0, 6), BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0 }, f)
 	corner(bar, 3)
 	local fill = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, bar)
@@ -296,10 +342,10 @@ function Elements:Slider(o)
 		else
 			fill.Size, knob.Position = UDim2.fromScale(r, 1), UDim2.fromScale(r, 0.5)
 		end
-		valBox.Text = fmt(value)
+		if not valBox:IsFocused() then valBox.Text = fmt(value) end
 	end
 	function obj:Set(v, silent)
-		v = math.clamp(tonumber(v) or min, min, max)
+		v = math.clamp(tonumber(v) or value, min, max)
 		v = math.floor((v - min) / step + 0.5) * step + min
 		v = math.clamp(tonumber(string.format("%." .. dec .. "f", v)) or v, min, max)
 		local changed = v ~= value
@@ -309,18 +355,25 @@ function Elements:Slider(o)
 		if changed and not silent and o.Callback then task.spawn(o.Callback, value) end
 	end
 	function obj:Get() return value end
-	local function fromX(x)
-		local r = math.clamp((x - bar.AbsolutePosition.X) / math.max(1, bar.AbsoluteSize.X), 0, 1)
+	local function fromPos(p)
+		local r = math.clamp((p.X - bar.AbsolutePosition.X) / math.max(1, bar.AbsoluteSize.X), 0, 1)
 		obj:Set(min + (max - min) * r)
 	end
 	local win = self._window
 	hit.InputBegan:Connect(function(i)
 		if i.UserInputType == MB1 or i.UserInputType == TOUCH then
-			win._drag = fromX
+			win._drag = fromPos
 			win._dragEnd = function() tween(knob, 0.15, { Size = UDim2.fromOffset(14, 14) }) end
 			tween(knob, 0.15, { Size = UDim2.fromOffset(18, 18) })
-			fromX(i.Position.X)
+			fromPos(i.Position)
 		end
+	end)
+	valBox.Focused:Connect(function() valBox.Text = string.format("%." .. dec .. "f", value) tween(vst, 0.15, { Color = Theme.Accent }) end)
+	valBox.FocusLost:Connect(function()
+		tween(vst, 0.15, { Color = Theme.Stroke })
+		local n = tonumber((valBox.Text:gsub("[^%d%.%-]", "")))
+		valBox.Text = fmt(value)
+		if n then obj:Set(n) end
 	end)
 	if o.Flag then RedlineX.Flags[o.Flag] = value end
 	render(false)
@@ -330,7 +383,7 @@ end
 
 function Elements:Button(o)
 	o = o or {}
-	local f = Card(self, (o.Desc and o.Desc ~= "") and 54 or 44)
+	local f = Card(self, hasDesc(o) and 54 or 44, o)
 	f.ClipsDescendants = true
 	Titles(f, o.Name, o.Desc, 60)
 	local arrow = text(f, { Text = "›", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, -1), Size = UDim2.fromOffset(20, 24), TextSize = 24,
@@ -364,7 +417,7 @@ function Elements:Dropdown(o)
 		value = o.Default or options[1]
 	end
 	local HEAD = 46
-	local f = Card(self, HEAD)
+	local f = Card(self, HEAD, o)
 	f.ClipsDescendants = true
 	text(f, { Text = o.Name or "", Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -210, 0, HEAD) })
 	local selL = text(f, { Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -36, 0, 0), Size = UDim2.new(0, 180, 0, HEAD), Font = FONT, TextSize = 12,
@@ -396,8 +449,8 @@ function Elements:Dropdown(o)
 	local function height() return HEAD + (open and (#options * 34 + 6) or 0) end
 	local function setOpen(v)
 		open = v
-		tween(f, 0.28, { Size = UDim2.new(1, 0, 0, height()) })
-		tween(chev, 0.28, { Rotation = open and 180 or 0 })
+		tween(f, 0.3, { Size = UDim2.new(1, 0, 0, height()) })
+		tween(chev, 0.3, { Rotation = open and 180 or 0 })
 	end
 	function obj:Get()
 		if multi then
@@ -461,9 +514,9 @@ end
 function Elements:Keybind(o)
 	o = o or {}
 	local key = toKey(o.Default)
-	local f = Card(self, (o.Desc and o.Desc ~= "") and 54 or 44)
+	local f = Card(self, hasDesc(o) and 54 or 44, o)
 	Titles(f, o.Name, o.Desc, 130)
-	local b = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(100, 28), BackgroundColor3 = Theme.Surface3,
+	local b = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(104, 28), BackgroundColor3 = Theme.Surface3,
 		Font = FONT_B, TextSize = 12, TextColor3 = Theme.Text, Text = "", AutoButtonColor = false, ZIndex = 6 }, f)
 	corner(b, 7)
 	local bst = stroke(b, Theme.Stroke)
@@ -501,7 +554,7 @@ end
 
 function Elements:Input(o)
 	o = o or {}
-	local f = Card(self, (o.Desc and o.Desc ~= "") and 54 or 46)
+	local f = Card(self, hasDesc(o) and 54 or 46, o)
 	Titles(f, o.Name, o.Desc, 196)
 	local box = new("TextBox", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(172, 28), BackgroundColor3 = Theme.Surface3,
 		Font = FONT, TextSize = 12, TextColor3 = Theme.Text, PlaceholderText = o.Placeholder or "Type here…", PlaceholderColor3 = Theme.Dim, Text = o.Default or "",
@@ -523,34 +576,83 @@ function Elements:Input(o)
 	return obj
 end
 
+-- color picker: quick swatches + a full picker (saturation/brightness square, hue bar, hex box) that opens on the preview
 function Elements:ColorPicker(o)
 	o = o or {}
-	local colors = o.Colors or {
+	local swatches = o.Colors or {
 		Color3.fromRGB(255, 46, 77), Color3.fromRGB(255, 128, 64), Color3.fromRGB(255, 205, 60), Color3.fromRGB(64, 222, 140),
-		Color3.fromRGB(60, 210, 230), Color3.fromRGB(80, 140, 255), Color3.fromRGB(150, 100, 255), Color3.fromRGB(255, 90, 200), Color3.fromRGB(235, 235, 245),
+		Color3.fromRGB(60, 190, 255), Color3.fromRGB(150, 100, 255), Color3.fromRGB(255, 100, 190),
 	}
-	local value = o.Default or colors[1]
-	local f = Card(self, 46)
-	Titles(f, o.Name, nil, #colors * 26 + 30)
-	local row = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(#colors * 26, 22), BackgroundTransparency = 1 }, f)
+	local value = o.Default or swatches[1]
+	local H_, S_, V_ = value:ToHSV()
+	local HEAD, OPEN_H = 46, 46 + 152
+	local f = Card(self, HEAD, o)
+	f.ClipsDescendants = true
+	text(f, { Text = o.Name or "", Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -(#swatches * 24 + 80), 0, HEAD) })
+	local row = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -46, 0, 12), Size = UDim2.fromOffset(#swatches * 24, 22), BackgroundTransparency = 1 }, f)
 	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Right,
 		VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, row)
-	local sw, obj = {}, {}
+	-- preview = opens the full picker
+	local preview = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 10), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = value, Text = "",
+		AutoButtonColor = false, ZIndex = 6 }, f)
+	corner(preview, 8)
+	stroke(preview, Color3.new(1, 1, 1), 0.3, 1.5)
+	-- full picker
+	local panel = new("Frame", { Position = UDim2.fromOffset(14, HEAD + 2), Size = UDim2.new(1, -28, 0, 140), BackgroundTransparency = 1 }, f)
+	local sq = new("Frame", { Size = UDim2.new(1, -34, 0, 108), BackgroundColor3 = Color3.fromHSV(H_, 1, 1), BorderSizePixel = 0 }, panel)
+	corner(sq, 8)
+	local white = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, sq)
+	corner(white, 8)
+	new("UIGradient", { Transparency = NumberSequence.new(0, 1) }, white)
+	local black = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0 }, sq)
+	corner(black, 8)
+	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(1, 0) }, black)
+	local cur = new("Frame", { Size = UDim2.fromOffset(12, 12), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 4 }, sq)
+	corner(cur, 6)
+	stroke(cur, Color3.new(1, 1, 1), 0, 2)
+	local hue = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(18, 108), BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0 }, panel)
+	corner(hue, 6)
+	local keys = {}
+	for i = 0, 6 do keys[#keys + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(i / 6, 1, 1)) end
+	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(keys) }, hue)
+	local hcur = new("Frame", { Size = UDim2.new(1, 4, 0, 4), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0), BackgroundColor3 = Color3.new(1, 1, 1),
+		ZIndex = 4 }, hue)
+	corner(hcur, 2)
+	stroke(hcur, Color3.new(0, 0, 0), 0.5)
+	local hex = new("TextBox", { Position = UDim2.fromOffset(0, 114), Size = UDim2.new(1, 0, 0, 24), BackgroundColor3 = Theme.Surface3, Font = FONT_B, TextSize = 12,
+		TextColor3 = Theme.Text, Text = "", ClearTextOnFocus = false, ZIndex = 6 }, panel)
+	corner(hex, 6)
+	stroke(hex, Theme.Stroke)
+	local sw, obj, open = {}, {}, false
 	local function paint()
+		preview.BackgroundColor3 = value
+		sq.BackgroundColor3 = Color3.fromHSV(H_, 1, 1)
+		cur.Position = UDim2.fromScale(S_, 1 - V_)
+		hcur.Position = UDim2.fromScale(0.5, H_)
+		if not hex:IsFocused() then hex.Text = toHex(value) end
 		for _, s in ipairs(sw) do
 			local on = s.c == value
 			tween(s.st, 0.15, { Transparency = on and 0 or 1 })
 			tween(s.f, 0.15, { Size = on and UDim2.fromOffset(22, 22) or UDim2.fromOffset(18, 18) })
 		end
 	end
+	local function commit(silent)
+		value = Color3.fromHSV(H_, S_, V_)
+		if o.Flag then RedlineX.Flags[o.Flag] = value end
+		paint()
+		if not silent and o.Callback then task.spawn(o.Callback, value) end
+	end
 	function obj:Set(c, silent)
+		if typeof(c) ~= "Color3" then return end
+		H_, S_, V_ = c:ToHSV()
 		value = c
 		if o.Flag then RedlineX.Flags[o.Flag] = value end
 		paint()
 		if not silent and o.Callback then task.spawn(o.Callback, value) end
 	end
 	function obj:Get() return value end
-	for i, c in ipairs(colors) do
+	for i, c in ipairs(swatches) do
 		local s = new("TextButton", { Size = UDim2.fromOffset(18, 18), BackgroundColor3 = c, Text = "", AutoButtonColor = false, LayoutOrder = i, ZIndex = 6 }, row)
 		corner(s, 999)
 		gloss(s)
@@ -558,13 +660,59 @@ function Elements:ColorPicker(o)
 		s.MouseButton1Click:Connect(function() obj:Set(c) end)
 		sw[#sw + 1] = { c = c, f = s, st = st }
 	end
+	preview.MouseButton1Click:Connect(function()
+		open = not open
+		tween(f, 0.3, { Size = UDim2.new(1, 0, 0, open and OPEN_H or HEAD) })
+	end)
+	local win = self._window
+	local function sqDrag(p)
+		S_ = math.clamp((p.X - sq.AbsolutePosition.X) / sq.AbsoluteSize.X, 0, 1)
+		V_ = 1 - math.clamp((p.Y - sq.AbsolutePosition.Y) / sq.AbsoluteSize.Y, 0, 1)
+		commit()
+	end
+	local function hueDrag(p)
+		H_ = math.clamp((p.Y - hue.AbsolutePosition.Y) / hue.AbsoluteSize.Y, 0, 0.999)
+		commit()
+	end
+	for _, pair in ipairs({ { sq, sqDrag }, { hue, hueDrag } }) do
+		local hb = new("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 5 }, pair[1])
+		hb.InputBegan:Connect(function(i)
+			if i.UserInputType == MB1 or i.UserInputType == TOUCH then win._drag = pair[2] pair[2](i.Position) end
+		end)
+	end
+	hex.FocusLost:Connect(function() local c = fromHex(hex.Text) if c then obj:Set(c) else hex.Text = toHex(value) end end)
 	obj:Set(value, true)
 	register(o, function(v) obj:Set(v) end)
 	return obj
 end
 
+function Elements:Progress(o)
+	o = o or {}
+	local value = math.clamp(o.Default or 0, 0, 1)
+	local f = Card(self, 52, o)
+	text(f, { Text = o.Name or "", Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -90, 0, 17) })
+	local pct = text(f, { Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(70, 17), TextXAlignment = RIGHT, TextSize = 12 })
+	onAccent(function() pct.TextColor3 = Theme.Accent end)
+	local bar = new("Frame", { Position = UDim2.new(0, 14, 1, -17), Size = UDim2.new(1, -28, 0, 8), BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0 }, f)
+	corner(bar, 4)
+	local fill = new("Frame", { Size = UDim2.fromScale(value, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, bar)
+	corner(fill, 4)
+	accentGradient(fill)
+	local shine = new("Frame", { Size = UDim2.new(1, 0, 0.5, 0), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.75, BorderSizePixel = 0 }, fill)
+	corner(shine, 4)
+	local obj = {}
+	function obj:Set(v)
+		value = math.clamp(tonumber(v) or 0, 0, 1)
+		tween(fill, 0.35, { Size = UDim2.fromScale(value, 1) })
+		pct.Text = math.floor(value * 100 + 0.5) .. "%"
+	end
+	function obj:Get() return value end
+	obj:Set(value)
+	return obj
+end
+
 function Elements:Label(t)
-	local f = Card(self, 36)
+	local f = Card(self, 36, { Name = t })
 	local l = text(f, { Text = tostring(t or ""), Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -28, 1, 0), Font = FONT, TextSize = 12, TextColor3 = Theme.Dim,
 		TextTruncate = Enum.TextTruncate.AtEnd })
 	return { Set = function(_, v) l.Text = tostring(v) end }
@@ -572,7 +720,9 @@ end
 
 function Elements:Paragraph(o)
 	o = o or {}
-	local f = new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Theme.Surface, LayoutOrder = self:_next() }, self._container)
+	local f = new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Theme.Surface, BackgroundTransparency = Theme.CardT,
+		LayoutOrder = self:_next() }, self._container)
+	f:SetAttribute("RX_Name", tostring(o.Title or "") .. " " .. tostring(o.Content or ""))
 	corner(f, 10)
 	gloss(f)
 	stroke(f, Theme.Stroke)
@@ -584,9 +734,316 @@ function Elements:Paragraph(o)
 	return { Set = function(_, title, content) if title then t.Text = title end if content then c.Text = content end end }
 end
 
+-- ===================== layout: collapsible groups + two columns =====================
+local function subContainer(win, frame)
+	return setmetatable({ _window = win, _order = 0, _container = frame }, Elements)
+end
+function Elements:Group(o)
+	o = type(o) == "string" and { Name = o } or (o or {})
+	local open = o.Open ~= false
+	local f = new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Theme.Surface, BackgroundTransparency = Theme.CardT,
+		LayoutOrder = self:_next() }, self._container)
+	f:SetAttribute("RX_Name", tostring(o.Name or ""))
+	corner(f, 12)
+	gloss(f)
+	stroke(f, Theme.Stroke)
+	new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder }, f)
+	local head = new("TextButton", { Size = UDim2.new(1, 0, 0, 46), BackgroundTransparency = 1, Text = "", LayoutOrder = 1 }, f)
+	text(head, { Text = o.Name or "Group", Position = UDim2.fromOffset(18, 0), Size = UDim2.new(1, -60, 1, 0), TextSize = 13 })
+	local chev = text(head, { Text = "⌄", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -18, 0.5, -3), Size = UDim2.fromOffset(16, 16), TextSize = 16,
+		TextXAlignment = CENTER, TextColor3 = Theme.Dim })
+	local inner = new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 2, Visible = open }, f)
+	pad(inner, 12, 12, 0, 12)
+	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, inner)
+	chev.Rotation = open and 0 or -90
+	head.MouseButton1Click:Connect(function()
+		open = not open
+		inner.Visible = open
+		tween(chev, 0.25, { Rotation = open and 0 or -90 })
+	end)
+	return subContainer(self._window, inner)
+end
+function Elements:Row()
+	local r = new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = self:_next() }, self._container)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, r)
+	local cols = {}
+	for i = 1, 2 do
+		local c = new("Frame", { Size = UDim2.new(0.5, -4, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = i }, r)
+		new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, c)
+		cols[i] = subContainer(self._window, c)
+	end
+	return cols[1], cols[2]
+end
+
+-- ===================== charts =====================
+RedlineX.ChartColors = { Color3.fromRGB(116, 150, 255), Color3.fromRGB(176, 116, 255), Color3.fromRGB(96, 226, 240), Color3.fromRGB(242, 116, 204),
+	Color3.fromRGB(255, 184, 72), Color3.fromRGB(84, 222, 144) }
+local function sliceInfo(d, i)
+	if type(d) ~= "table" then return tostring(i), tonumber(d) or 0, RedlineX.ChartColors[(i - 1) % #RedlineX.ChartColors + 1] end
+	return tostring(d.Name or d[1] or i), tonumber(d.Value or d[2]) or 0, d.Color or d[3] or RedlineX.ChartColors[(i - 1) % #RedlineX.ChartColors + 1]
+end
+local function niceNum(v) if v == math.floor(v) then return tostring(v) end return string.format("%.1f", v) end
+
+-- line chart with soft area fill.  Data = { 2, 4, 3, 7 }   :Set(newData)
+function Elements:LineChart(o)
+	o = o or {}
+	local H = o.Height or 200
+	local f = Card(self, H, o)
+	text(f, { Text = o.Name or "Line chart", Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 18) })
+	local plot = new("Frame", { Position = UDim2.fromOffset(48, 42), Size = UDim2.new(1, -66, 1, -58), BackgroundTransparency = 1 }, f)
+	local obj, data = {}, o.Data or {}
+	local function draw()
+		plot:ClearAllChildren()
+		local w, h = plot.AbsoluteSize.X, plot.AbsoluteSize.Y
+		if w < 20 or h < 20 then return end
+		local maxV = o.Max or 0
+		if maxV == 0 then for _, v in ipairs(data) do maxV = math.max(maxV, tonumber(v) or 0) end end
+		if maxV <= 0 then maxV = 1 end
+		for i = 0, 3 do
+			local y = h - h * (i / 3)
+			new("Frame", { Position = UDim2.fromOffset(0, y), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Theme.Stroke, BackgroundTransparency = 0.35, BorderSizePixel = 0 }, plot)
+			text(plot, { Text = niceNum(maxV * i / 3), Position = UDim2.fromOffset(-40, y - 7), Size = UDim2.fromOffset(32, 14), Font = FONT, TextSize = 10,
+				TextColor3 = Theme.Dim, TextXAlignment = RIGHT })
+		end
+		local pts = {}
+		for i, v in ipairs(data) do
+			local x = (#data == 1) and w / 2 or (i - 1) / (#data - 1) * w
+			pts[i] = Vector2.new(x, h - math.clamp((tonumber(v) or 0) / maxV, 0, 1) * h)
+		end
+		-- area fill: thin columns under the line, fading down
+		if #pts > 1 then
+			local seg = 1
+			for x = 0, w, 3 do
+				while seg < #pts - 1 and x > pts[seg + 1].X do seg += 1 end
+				local a, b = pts[seg], pts[seg + 1]
+				local t = (b.X - a.X) > 0 and math.clamp((x - a.X) / (b.X - a.X), 0, 1) or 0
+				local y = a.Y + (b.Y - a.Y) * t
+				local col = new("Frame", { Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(3, math.max(0, h - y)), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0 }, plot)
+				new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(0.72, 1) }, col)
+			end
+		end
+		for i = 1, #pts - 1 do
+			local a, b = pts[i], pts[i + 1]
+			local d = b - a
+			new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset((a.X + b.X) / 2, (a.Y + b.Y) / 2), Size = UDim2.fromOffset(d.Magnitude + 1, 2),
+				Rotation = math.deg(math.atan2(d.Y, d.X)), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0 }, plot)
+		end
+		for _, p in ipairs(pts) do
+			local dot = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(p.X, p.Y), Size = UDim2.fromOffset(9, 9), BackgroundColor3 = Theme.Bg,
+				ZIndex = 3 }, plot)
+			corner(dot, 5)
+			stroke(dot, Theme.Accent, 0, 2)
+		end
+	end
+	plot:GetPropertyChangedSignal("AbsoluteSize"):Connect(draw)
+	onAccent(function() task.defer(draw) end)
+	task.defer(draw)
+	function obj:Set(d) data = d or {} draw() end
+	function obj:Get() return data end
+	return obj
+end
+
+-- pie / donut, drawn from thin radial strokes.  Data = { {"Wins", 60}, {"Losses", 30, Color3...} }
+local function roundChart(self, o, donut)
+	o = o or {}
+	local H = o.Height or 210
+	local f = Card(self, H, o)
+	text(f, { Text = o.Name or (donut and "Donut chart" or "Pie chart"), Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 18) })
+	local size = H - 56
+	local circ = new("Frame", { Position = UDim2.fromOffset(18, 42), Size = UDim2.fromOffset(size, size), BackgroundTransparency = 1 }, f)
+	local legend = new("Frame", { Position = UDim2.fromOffset(size + 40, 42), Size = UDim2.new(1, -(size + 58), 0, size), BackgroundTransparency = 1 }, f)
+	new("UIListLayout", { Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, legend)
+	local obj, data = {}, o.Data or {}
+	local function draw()
+		circ:ClearAllChildren()
+		for _, c in ipairs(legend:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+		local slices, total = {}, 0
+		for i, d in ipairs(data) do
+			local n, v, c = sliceInfo(d, i)
+			slices[#slices + 1] = { n = n, v = math.max(0, v), c = c }
+			total += math.max(0, v)
+		end
+		if total <= 0 then return end
+		local acc = 0
+		for _, s in ipairs(slices) do s.a0 = acc / total acc += s.v s.a1 = acc / total end
+		local R = size / 2
+		local inner = donut and R * 0.6 or 0
+		local N = 200
+		local thick = math.ceil(2 * math.pi * R / N) + 2
+		for k = 0, N - 1 do
+			local a = (k + 0.5) / N
+			local slice
+			for _, s in ipairs(slices) do if a >= s.a0 and a < s.a1 then slice = s break end end
+			-- leave a 1-step gap at the start of each slice (clean separation)
+			if slice and (a - slice.a0) * N >= 1 then
+				local ang = a * 2 * math.pi - math.pi / 2
+				local len = R - inner
+				local mid = inner + len / 2
+				new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(R + math.cos(ang) * mid, R + math.sin(ang) * mid),
+					Size = UDim2.fromOffset(len, donut and thick or math.max(2, thick)), Rotation = math.deg(ang), BackgroundColor3 = slice.c, BorderSizePixel = 0 }, circ)
+			end
+		end
+		if donut then
+			text(circ, { Text = o.Center or niceNum(total), Position = UDim2.new(0, 0, 0.5, -14), Size = UDim2.new(1, 0, 0, 22), Font = FONT_BL, TextSize = 18, TextXAlignment = CENTER, ZIndex = 3 })
+			text(circ, { Text = o.CenterLabel or "Total", Position = UDim2.new(0, 0, 0.5, 8), Size = UDim2.new(1, 0, 0, 14), Font = FONT, TextSize = 10, TextColor3 = Theme.Dim,
+				TextXAlignment = CENTER, ZIndex = 3 })
+		end
+		for i, s in ipairs(slices) do
+			local row = new("Frame", { Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1, LayoutOrder = i }, legend)
+			local dot = new("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(8, 8), BackgroundColor3 = s.c }, row)
+			corner(dot, 4)
+			text(row, { Text = s.n, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -70, 1, 0), Font = FONT, TextSize = 12, TextColor3 = Theme.Dim })
+			text(row, { Text = math.floor(s.v / total * 100 + 0.5) .. "%", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(50, 16),
+				TextSize = 12, TextXAlignment = RIGHT })
+		end
+	end
+	task.defer(draw)
+	function obj:Set(d) data = d or {} draw() end
+	function obj:Get() return data end
+	return obj
+end
+function Elements:PieChart(o) return roundChart(self, o, false) end
+function Elements:DonutChart(o) return roundChart(self, o, true) end
+
+-- ===================== key system =====================
+--[[
+	if not RedlineX:KeySystem({
+		Title = "My Hub", Subtitle = "Key required",
+		Keys = { "redline-123" },                 -- valid keys, and/or
+		KeyURL = "https://raw.githubusercontent.com/.../keys.txt",   -- one key per line (fetched)
+		Validate = function(key) return true/false end,             -- or your own check
+		GetKeyLink = "https://your-key-page",     -- copied by "Get key"
+		SaveKey = true,                           -- remember a working key
+	}) then return end
+]]
+function RedlineX:KeySystem(o)
+	o = o or {}
+	local title = o.Title or "RedlineX"
+	local savePath = "RedlineX/key_" .. title:gsub("[^%w]", "") .. ".txt"
+	local keys = {}
+	for _, k in ipairs(o.Keys or {}) do keys[tostring(k)] = true end
+	if o.KeyURL then
+		local ok, body = pcall(function() return game:HttpGet(o.KeyURL) end)
+		if ok and type(body) == "string" then
+			for line in body:gmatch("[^\r\n]+") do
+				local k = line:match("^%s*(.-)%s*$")
+				if k ~= "" then keys[k] = true end
+			end
+		end
+	end
+	local function valid(k)
+		k = tostring(k or ""):match("^%s*(.-)%s*$")
+		if k == "" then return false end
+		if o.Validate then local ok, r = pcall(o.Validate, k) return ok and r == true end
+		return keys[k] == true
+	end
+	if o.SaveKey ~= false and isfile and isfile(savePath) then
+		local ok, k = pcall(readfile, savePath)
+		if ok and valid(k) then
+			RedlineX:Notify({ Title = "Key accepted", Content = "Welcome back!", Type = "success", Duration = 3 })
+			return true
+		end
+	end
+
+	local gui = new("ScreenGui", { Name = "RedlineX_Key", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 90, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, guiParent())
+	local dim = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1 }, gui)
+	local card = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(400, 276), BackgroundColor3 = Theme.Bg,
+		BackgroundTransparency = 0.08 }, gui)
+	corner(card, 16)
+	local cst = stroke(card, Color3.new(1, 1, 1), 0, 1.2)
+	new("UIGradient", { Rotation = 35, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Theme.Accent), ColorSequenceKeypoint.new(0.4, Theme.Stroke),
+		ColorSequenceKeypoint.new(1, Theme.Stroke) }) }, cst)
+	local cscale = new("UIScale", { Scale = 0.85 }, card)
+	local glow = new("Frame", { Size = UDim2.fromOffset(320, 160), Position = UDim2.new(0.5, -160, 0, -110), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, card)
+	corner(glow, 160)
+	local gg = accentGradient(glow, 90)
+	gg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.6, 0.82), NumberSequenceKeypoint.new(1, 0.96) })
+	local logo = new("Frame", { Position = UDim2.fromOffset(24, 22), Size = UDim2.fromOffset(40, 40), BackgroundColor3 = Color3.new(1, 1, 1) }, card)
+	corner(logo, 11)
+	accentGradient(logo, 45)
+	text(logo, { Text = o.Logo or "R", Size = UDim2.fromScale(1, 1), Font = FONT_BL, TextSize = 20, TextXAlignment = CENTER })
+	text(card, { Text = title, Position = UDim2.fromOffset(76, 22), Size = UDim2.new(1, -120, 0, 20), Font = FONT_BL, TextSize = 17 })
+	text(card, { Text = o.Subtitle or "Enter your key to continue", Position = UDim2.fromOffset(76, 44), Size = UDim2.new(1, -120, 0, 15), Font = FONT, TextSize = 12, TextColor3 = Theme.Dim })
+	local closeB = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 18), Size = UDim2.fromOffset(28, 28), BackgroundTransparency = 1, Text = "✕",
+		Font = FONT_B, TextSize = 14, TextColor3 = Theme.Dim }, card)
+	text(card, { Text = "KEY", Position = UDim2.fromOffset(24, 84), Size = UDim2.fromOffset(100, 14), Font = FONT_BL, TextSize = 10, TextColor3 = Theme.Dim })
+	local box = new("TextBox", { Position = UDim2.fromOffset(24, 102), Size = UDim2.new(1, -48, 0, 42), BackgroundColor3 = Theme.Surface2, BackgroundTransparency = 0.2,
+		Font = FONT_B, TextSize = 13, TextColor3 = Theme.Text, PlaceholderText = "paste your key here…", PlaceholderColor3 = Theme.Dim, Text = "", ClearTextOnFocus = false,
+		TextXAlignment = LEFT, ClipsDescendants = true }, card)
+	corner(box, 10)
+	pad(box, 14, 14)
+	local bst = stroke(box, Theme.Stroke)
+	box.Focused:Connect(function() tween(bst, 0.2, { Color = Theme.Accent }) end)
+	box.FocusLost:Connect(function() tween(bst, 0.2, { Color = Theme.Stroke }) end)
+	local status = text(card, { Text = o.Note or "Get a key, paste it above, then press Check key.", Position = UDim2.fromOffset(24, 152), Size = UDim2.new(1, -48, 0, 30),
+		Font = FONT, TextSize = 12, TextColor3 = Theme.Dim, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top })
+	local checkB = new("TextButton", { Position = UDim2.new(0, 24, 1, -66), Size = UDim2.new(0.5, -30, 0, 42), BackgroundColor3 = Color3.new(1, 1, 1), Text = "Check key",
+		Font = FONT_BL, TextSize = 13, TextColor3 = Color3.new(1, 1, 1), AutoButtonColor = true }, card)
+	corner(checkB, 10)
+	accentGradient(checkB)
+	local getB = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 1, -66), Size = UDim2.new(0.5, -30, 0, 42), BackgroundColor3 = Theme.Surface3,
+		BackgroundTransparency = 0.2, Text = "Get key", Font = FONT_B, TextSize = 13, TextColor3 = Theme.Text, AutoButtonColor = true }, card)
+	corner(getB, 10)
+	stroke(getB, Theme.Stroke)
+
+	local result = nil
+	local function finish(r)
+		if result ~= nil then return end
+		result = r
+		tween(dim, 0.25, { BackgroundTransparency = 1 })
+		tween(cscale, 0.25, { Scale = 0.85 })
+		task.delay(0.25, function() gui:Destroy() end)
+	end
+	local function shake()
+		for _, x in ipairs({ -10, 9, -7, 5, -3, 0 }) do
+			tween(card, 0.05, { Position = UDim2.new(0.5, x, 0.5, 0) }, Enum.EasingStyle.Linear)
+			task.wait(0.05)
+		end
+	end
+	local checking = false
+	local function check()
+		if checking then return end
+		checking = true
+		status.Text, status.TextColor3 = "Checking…", Theme.Dim
+		local k = box.Text
+		local ok = valid(k)
+		if ok then
+			if o.SaveKey ~= false and writefile then
+				pcall(makefolder, "RedlineX")
+				pcall(writefile, savePath, (k:match("^%s*(.-)%s*$")))
+			end
+			status.Text, status.TextColor3 = "✓  Key accepted, loading…", Theme.Success
+			tween(bst, 0.2, { Color = Theme.Success })
+			task.wait(0.6)
+			finish(true)
+		else
+			status.Text, status.TextColor3 = "✕  That key isn't valid. Get a new one and try again.", Theme.Error
+			tween(bst, 0.2, { Color = Theme.Error })
+			shake()
+		end
+		checking = false
+	end
+	checkB.MouseButton1Click:Connect(function() task.spawn(check) end)
+	box.FocusLost:Connect(function(enter) if enter then task.spawn(check) end end)
+	getB.MouseButton1Click:Connect(function()
+		if o.GetKeyLink and setclipboard then
+			pcall(setclipboard, o.GetKeyLink)
+			status.Text, status.TextColor3 = "Key link copied! Paste it in your browser.", Theme.Accent
+		else
+			status.Text, status.TextColor3 = o.GetKeyLink or "Ask the owner for a key.", Theme.Accent
+		end
+	end)
+	closeB.MouseButton1Click:Connect(function() finish(false) end)
+	tween(dim, 0.3, { BackgroundTransparency = 0.45 })
+	tween(cscale, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
+	repeat task.wait() until result ~= nil
+	return result
+end
+
 -- ===================== window =====================
 function RedlineX:CreateWindow(opt)
 	opt = opt or {}
+	if opt.Theme then RedlineX:SetTheme(opt.Theme) end
 	local W = { Tabs = {}, _conns = {}, ToggleKey = toKey(opt.ToggleKey or Enum.KeyCode.RightShift), Visible = true }
 	function W:_conn(c) self._conns[#self._conns + 1] = c return c end
 	local title = opt.Title or "RedlineX"
@@ -595,86 +1052,113 @@ function RedlineX:CreateWindow(opt)
 	if old then old:Destroy() end
 	local gui = new("ScreenGui", { Name = "RedlineX_" .. title, ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 50, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, parent)
 	W.Gui = gui
-	local SW, SH = (opt.Size and opt.Size.X) or 660, (opt.Size and opt.Size.Y) or 440
-	local SIDE = 186
+	local SW, SH = (opt.Size and opt.Size.X) or 800, (opt.Size and opt.Size.Y) or 500
+	local SIDE = 220
+	local glassT = (opt.Glass == false) and 0 or (opt.Transparency or 0.14)
+	Theme.CardT = (opt.Glass == false) and 0 or 0.28
 
 	-- holder (shadow + window) and scale-to-fit
 	local holder = new("Frame", { Size = UDim2.fromOffset(SW, SH), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1 }, gui)
 	local scaler = new("UIScale", { Scale = 0.88 }, holder)
-	for i, t in ipairs({ 0.8, 0.88, 0.94 }) do
-		local s = new("Frame", { Size = UDim2.new(1, i * 12, 1, i * 12), Position = UDim2.new(0.5, 0, 0.5, 6), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(0, 0, 0),
+	for i, t in ipairs({ 0.82, 0.9, 0.95 }) do
+		local s = new("Frame", { Size = UDim2.new(1, i * 14, 1, i * 14), Position = UDim2.new(0.5, 0, 0.5, 8), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(0, 0, 0),
 			BackgroundTransparency = t }, holder)
-		corner(s, 16 + i * 5)
+		corner(s, 18 + i * 6)
 	end
-	local main = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Bg, ClipsDescendants = true }, holder)
-	corner(main, 14)
+	local main = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Bg, BackgroundTransparency = glassT, ClipsDescendants = true }, holder)
+	corner(main, 16)
 	local mainStroke = stroke(main, Color3.new(1, 1, 1), 0, 1.2)
-	new("UIGradient", { Rotation = 35, Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Theme.Accent), ColorSequenceKeypoint.new(0.35, Theme.Stroke), ColorSequenceKeypoint.new(1, Theme.Stroke) }) }, mainStroke)
-	local strokeGrad = mainStroke:FindFirstChildOfClass("UIGradient")
+	local strokeGrad = new("UIGradient", { Rotation = 35 }, mainStroke)
 	onAccent(function()
-		strokeGrad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Theme.Accent), ColorSequenceKeypoint.new(0.35, Theme.Stroke), ColorSequenceKeypoint.new(1, Theme.Stroke) })
+		strokeGrad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Theme.Accent), ColorSequenceKeypoint.new(0.3, Theme.Stroke), ColorSequenceKeypoint.new(1, Theme.Stroke) })
 	end)
-	-- glass: soft red glow in the corner + top sheen
-	local glow = new("Frame", { Size = UDim2.fromOffset(460, 240), Position = UDim2.new(0.5, -230, 0, -170), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, main)
-	corner(glow, 200)
+	local sheen = new("Frame", { Size = UDim2.new(1, 0, 0, 160), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, main)
+	corner(sheen, 16)
+	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.955), NumberSequenceKeypoint.new(1, 1) }) }, sheen)
+	local glow = new("Frame", { Size = UDim2.fromOffset(520, 260), Position = UDim2.new(0.5, -120, 0, -190), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, main)
+	corner(glow, 240)
 	local gg = accentGradient(glow, 90)
-	gg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.55, 0.86), NumberSequenceKeypoint.new(1, 0.97) })
-	local sheen = new("Frame", { Size = UDim2.new(1, 0, 0, 140), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, main)
-	corner(sheen, 14)
-	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.95), NumberSequenceKeypoint.new(1, 1) }) }, sheen)
+	gg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.55, 0.88), NumberSequenceKeypoint.new(1, 0.97) })
 
-	-- header
-	local header = new("Frame", { Size = UDim2.new(1, 0, 0, 58), BackgroundTransparency = 1, Active = true }, main)
-	local logo = new("Frame", { Size = UDim2.fromOffset(36, 36), Position = UDim2.fromOffset(16, 11), BackgroundColor3 = Color3.new(1, 1, 1) }, header)
+	-- ===== sidebar: brand, search, tabs, profile =====
+	local side = new("Frame", { Size = UDim2.new(0, SIDE, 1, 0), BackgroundColor3 = Theme.Side, BackgroundTransparency = glassT > 0 and 0.5 or 0, BorderSizePixel = 0 }, main)
+	corner(side, 16)
+	new("Frame", { Size = UDim2.new(0, 16, 1, 0), Position = UDim2.new(1, -16, 0, 0), BackgroundColor3 = Theme.Side, BackgroundTransparency = side.BackgroundTransparency,
+		BorderSizePixel = 0 }, side) -- squares off the right edge of the rounded sidebar
+	new("Frame", { Size = UDim2.new(0, 1, 1, 0), Position = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Theme.Stroke, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, side)
+	local brand = new("Frame", { Size = UDim2.new(1, 0, 0, 66), BackgroundTransparency = 1, Active = true }, side)
+	local logo = new("Frame", { Size = UDim2.fromOffset(34, 34), Position = UDim2.fromOffset(18, 18), BackgroundColor3 = Color3.new(1, 1, 1) }, brand)
 	corner(logo, 10)
 	accentGradient(logo, 45)
 	local logoShine = new("Frame", { Size = UDim2.new(1, -4, 0.5, -2), Position = UDim2.fromOffset(2, 2), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.78 }, logo)
 	corner(logoShine, 8)
-	text(logo, { Text = opt.Logo or "R", Size = UDim2.fromScale(1, 1), Font = FONT_BL, TextSize = 19, TextXAlignment = CENTER })
-	text(header, { Text = title, Position = UDim2.fromOffset(62, 11), Size = UDim2.fromOffset(320, 19), Font = FONT_BL, TextSize = 16 })
-	text(header, { Text = opt.Subtitle or ("RedlineX v" .. RedlineX.Version), Position = UDim2.fromOffset(62, 30), Size = UDim2.fromOffset(320, 15), Font = FONT, TextSize = 11, TextColor3 = Theme.Dim })
-	local function hbtn(x, glyph, hoverCol)
-		local b = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, x, 0.5, 0), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Theme.Surface2,
-			Text = glyph, Font = FONT_B, TextSize = 15, TextColor3 = Theme.Dim, AutoButtonColor = false }, header)
-		corner(b, 9)
-		stroke(b, Theme.Stroke)
-		b.MouseEnter:Connect(function() tween(b, 0.15, { BackgroundColor3 = Theme.Surface3, TextColor3 = hoverCol or Theme.Text }) end)
-		b.MouseLeave:Connect(function() tween(b, 0.15, { BackgroundColor3 = Theme.Surface2, TextColor3 = Theme.Dim }) end)
-		return b
-	end
-	local closeB = hbtn(-16, "✕", Theme.Error)
-	local minB = hbtn(-52, "–")
-	local line = new("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.fromOffset(0, 58), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, main)
-	local lg = accentGradient(line)
-	lg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.5, 0.75), NumberSequenceKeypoint.new(1, 0.92) })
-
-	-- sidebar
-	local side = new("Frame", { Size = UDim2.new(0, SIDE, 1, -59), Position = UDim2.fromOffset(0, 59), BackgroundColor3 = Theme.Side, BackgroundTransparency = 0.35, BorderSizePixel = 0 }, main)
-	new("Frame", { Size = UDim2.new(0, 1, 1, 0), Position = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Theme.Stroke, BorderSizePixel = 0 }, side)
-	local tabList = new("ScrollingFrame", { Size = UDim2.new(1, -16, 1, -84), Position = UDim2.fromOffset(8, 10), BackgroundTransparency = 1, BorderSizePixel = 0,
+	text(logo, { Text = opt.Logo or "R", Size = UDim2.fromScale(1, 1), Font = FONT_BL, TextSize = 17, TextXAlignment = CENTER })
+	text(brand, { Text = title, Position = UDim2.fromOffset(62, 18), Size = UDim2.new(1, -70, 0, 18), Font = FONT_BL, TextSize = 15, TextTruncate = Enum.TextTruncate.AtEnd })
+	text(brand, { Text = opt.Subtitle or ("RedlineX v" .. RedlineX.Version), Position = UDim2.fromOffset(62, 37), Size = UDim2.new(1, -70, 0, 14), Font = FONT, TextSize = 11,
+		TextColor3 = Theme.Dim, TextTruncate = Enum.TextTruncate.AtEnd })
+	local sbox = new("Frame", { Position = UDim2.fromOffset(14, 74), Size = UDim2.new(1, -28, 0, 36), BackgroundColor3 = Theme.Surface2, BackgroundTransparency = 0.35 }, side)
+	corner(sbox, 10)
+	local sst = stroke(sbox, Theme.Stroke)
+	text(sbox, { Text = "⌕", Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(18, 36), TextSize = 16, TextColor3 = Theme.Dim, TextXAlignment = CENTER })
+	local search = new("TextBox", { Position = UDim2.fromOffset(32, 0), Size = UDim2.new(1, -40, 1, 0), BackgroundTransparency = 1, Font = FONT, TextSize = 12, TextColor3 = Theme.Text,
+		PlaceholderText = "Search", PlaceholderColor3 = Theme.Dim, Text = "", ClearTextOnFocus = false, TextXAlignment = LEFT, ClipsDescendants = true }, sbox)
+	search.Focused:Connect(function() tween(sst, 0.2, { Color = Theme.Accent }) end)
+	search.FocusLost:Connect(function() tween(sst, 0.2, { Color = Theme.Stroke }) end)
+	local tabList = new("ScrollingFrame", { Position = UDim2.fromOffset(10, 122), Size = UDim2.new(1, -20, 1, -200), BackgroundTransparency = 1, BorderSizePixel = 0,
 		ScrollBarThickness = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y }, side)
 	new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, tabList)
-	-- profile card
-	local prof = new("Frame", { Size = UDim2.new(1, -16, 0, 56), Position = UDim2.new(0, 8, 1, -64), BackgroundColor3 = Theme.Surface }, side)
-	corner(prof, 10)
-	gloss(prof)
-	stroke(prof, Theme.Stroke)
-	local av = new("ImageLabel", { Size = UDim2.fromOffset(36, 36), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = Theme.Surface3, Image = "" }, prof)
+	new("Frame", { Position = UDim2.new(0, 14, 1, -70), Size = UDim2.new(1, -28, 0, 1), BackgroundColor3 = Theme.Stroke, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, side)
+	local av = new("ImageLabel", { Position = UDim2.new(0, 16, 1, -54), Size = UDim2.fromOffset(36, 36), BackgroundColor3 = Theme.Surface3, Image = "" }, side)
 	corner(av, 18)
-	local avSt = stroke(av, Theme.Accent, 0, 1.5)
+	local avSt = stroke(av, Theme.Accent, 0.2, 1.5)
 	onAccent(function() avSt.Color = Theme.Accent end)
 	task.spawn(function()
 		pcall(function() av.Image = Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
 	end)
-	text(prof, { Text = lp.DisplayName, Position = UDim2.fromOffset(54, 11), Size = UDim2.new(1, -60, 0, 16), TextSize = 12, TextTruncate = Enum.TextTruncate.AtEnd })
-	text(prof, { Text = "RedlineX v" .. RedlineX.Version, Position = UDim2.fromOffset(54, 28), Size = UDim2.new(1, -60, 0, 14), Font = FONT, TextSize = 10, TextColor3 = Theme.Dim })
+	text(side, { Text = lp.DisplayName, Position = UDim2.new(0, 62, 1, -52), Size = UDim2.new(1, -72, 0, 16), TextSize = 12, TextTruncate = Enum.TextTruncate.AtEnd })
+	text(side, { Text = opt.ProfileText or ("@" .. lp.Name), Position = UDim2.new(0, 62, 1, -35), Size = UDim2.new(1, -72, 0, 14), Font = FONT, TextSize = 10, TextColor3 = Theme.Dim,
+		TextTruncate = Enum.TextTruncate.AtEnd })
 
-	local content = new("Frame", { Size = UDim2.new(1, -SIDE - 1, 1, -59), Position = UDim2.fromOffset(SIDE + 1, 59), BackgroundTransparency = 1 }, main)
+	-- ===== content: page header + pages =====
+	local content = new("Frame", { Position = UDim2.fromOffset(SIDE + 1, 0), Size = UDim2.new(1, -SIDE - 1, 1, 0), BackgroundTransparency = 1 }, main)
+	local top = new("Frame", { Size = UDim2.new(1, 0, 0, 72), BackgroundTransparency = 1, Active = true }, content)
+	local pageTitle = text(top, { Text = "", Position = UDim2.fromOffset(26, 18), Size = UDim2.new(1, -170, 0, 22), Font = FONT_BL, TextSize = 18 })
+	local pageDesc = text(top, { Text = "", Position = UDim2.fromOffset(26, 42), Size = UDim2.new(1, -170, 0, 14), Font = FONT, TextSize = 11, TextColor3 = Theme.Dim })
+	local function tbtn(x, glyph, hoverCol, size)
+		local b = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, x, 0, 32), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Theme.Surface3,
+			BackgroundTransparency = 1, Text = glyph, Font = FONT_B, TextSize = size or 15, TextColor3 = Theme.Dim, AutoButtonColor = false }, top)
+		corner(b, 8)
+		b.MouseEnter:Connect(function() tween(b, 0.15, { BackgroundTransparency = 0.4, TextColor3 = hoverCol or Theme.Text }) end)
+		b.MouseLeave:Connect(function() tween(b, 0.15, { BackgroundTransparency = 1, TextColor3 = Theme.Dim }) end)
+		return b
+	end
+	local closeB = tbtn(-18, "✕", Theme.Error, 14)
+	local maxB = tbtn(-54, "⤢", nil, 16)
+	local minB = tbtn(-90, "–", nil, 16)
+	local pages = new("Frame", { Position = UDim2.fromOffset(0, 72), Size = UDim2.new(1, 0, 1, -72), BackgroundTransparency = 1 }, content)
+	local grip = new("TextButton", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -6, 1, -6), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Text = "⋰",
+		Font = FONT_B, TextSize = 13, TextColor3 = Theme.Dim, ZIndex = 20 }, main)
+
+	-- tooltip
+	local tip = new("Frame", { Size = UDim2.fromOffset(0, 26), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = Theme.Surface3, Visible = false, ZIndex = 200 }, gui)
+	corner(tip, 7)
+	stroke(tip, Theme.Stroke)
+	pad(tip, 10, 10)
+	local tipL = text(tip, { Text = "", Size = UDim2.fromScale(0, 1), AutomaticSize = Enum.AutomaticSize.X, Font = FONT, TextSize = 12, ZIndex = 201 })
+	function W._tip(t)
+		if t then
+			tipL.Text = t
+			local m = UIS:GetMouseLocation()
+			tip.Position = UDim2.fromOffset(m.X + 14, m.Y + 16)
+			tip.Visible = true
+		else
+			tip.Visible = false
+		end
+	end
 
 	-- minimized pill
-	local pill = new("TextButton", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14), Size = UDim2.fromOffset(240, 38), BackgroundColor3 = Theme.Surface,
-		Text = "", Visible = false, AutoButtonColor = false }, gui)
+	local pill = new("TextButton", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14), Size = UDim2.fromOffset(250, 38), BackgroundColor3 = Theme.Surface,
+		BackgroundTransparency = 0.1, Text = "", Visible = false, AutoButtonColor = false }, gui)
 	corner(pill, 19)
 	gloss(pill)
 	local pst = stroke(pill, Theme.Accent, 0.4)
@@ -685,7 +1169,7 @@ function RedlineX:CreateWindow(opt)
 	text(pdot, { Text = opt.Logo or "R", Size = UDim2.fromScale(1, 1), Font = FONT_BL, TextSize = 11, TextXAlignment = CENTER })
 	local pillL = text(pill, { Text = "", Position = UDim2.fromOffset(38, 0), Size = UDim2.new(1, -46, 1, 0), TextSize = 12 })
 
-	-- fit to screen + open animation
+	-- fit to screen
 	local baseScale = 1
 	local function fit()
 		local cam = workspace.CurrentCamera
@@ -695,8 +1179,11 @@ function RedlineX:CreateWindow(opt)
 	end
 	fit()
 	if workspace.CurrentCamera then W:_conn(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function() fit() scaler.Scale = baseScale end)) end
-	tween(scaler, 0.45, { Scale = baseScale }, Enum.EasingStyle.Back)
 
+	function W:SetTransparency(t)
+		glassT = math.clamp(t, 0, 0.8)
+		main.BackgroundTransparency = glassT
+	end
 	function W:Toggle(v)
 		if v == nil then v = not W.Visible end
 		W.Visible = v
@@ -706,10 +1193,11 @@ function RedlineX:CreateWindow(opt)
 			tween(scaler, 0.3, { Scale = baseScale }, Enum.EasingStyle.Back)
 		else
 			holder.Visible = false
+			tip.Visible = false
 			pillL.Text = title .. "  ·  " .. (W.ToggleKey.Name ~= "Unknown" and W.ToggleKey.Name or "tap") .. " to open"
 			pill.Visible = true
-			pill.Size = UDim2.fromOffset(200, 38)
-			tween(pill, 0.3, { Size = UDim2.fromOffset(240, 38) }, Enum.EasingStyle.Back)
+			pill.Size = UDim2.fromOffset(210, 38)
+			tween(pill, 0.3, { Size = UDim2.fromOffset(250, 38) }, Enum.EasingStyle.Back)
 		end
 	end
 	function W:Destroy()
@@ -718,18 +1206,52 @@ function RedlineX:CreateWindow(opt)
 		task.delay(0.15, function() gui:Destroy() end)
 	end
 	function W:Notify(o) RedlineX:Notify(o) end
+
+	-- maximize / restore
+	local maxed, prevSize, prevPos = false, nil, nil
+	maxB.MouseButton1Click:Connect(function()
+		local cam = workspace.CurrentCamera
+		if not cam then return end
+		if not maxed then
+			prevSize, prevPos = holder.Size, holder.Position
+			local vp = cam.ViewportSize
+			tween(holder, 0.35, { Size = UDim2.fromOffset(vp.X * 0.94 / scaler.Scale, vp.Y * 0.9 / scaler.Scale), Position = UDim2.fromScale(0.5, 0.5) })
+			maxB.Text = "⤡"
+		else
+			tween(holder, 0.35, { Size = prevSize, Position = prevPos })
+			maxB.Text = "⤢"
+		end
+		maxed = not maxed
+	end)
 	minB.MouseButton1Click:Connect(function() W:Toggle(false) end)
 	pill.MouseButton1Click:Connect(function() W:Toggle(true) end)
-	closeB.MouseButton1Click:Connect(function() W:Destroy() end)
 
-	-- dragging (window + sliders), mouse and touch
+	-- dragging (window by the brand / page header, sliders, color picker, resize grip)
 	local dragging, dStart, dPos
-	header.InputBegan:Connect(function(i)
-		if i.UserInputType == MB1 or i.UserInputType == TOUCH then dragging, dStart, dPos = true, i.Position, holder.Position end
+	for _, h in ipairs({ brand, top }) do
+		h.InputBegan:Connect(function(i)
+			if i.UserInputType == MB1 or i.UserInputType == TOUCH then dragging, dStart, dPos = true, i.Position, holder.Position end
+		end)
+	end
+	grip.InputBegan:Connect(function(i)
+		if i.UserInputType == MB1 or i.UserInputType == TOUCH then
+			local s0, p0, size0 = i.Position, holder.Position, holder.AbsoluteSize / scaler.Scale
+			W._drag = function(p)
+				local sc = scaler.Scale
+				local nw = math.max(600, size0.X + (p.X - s0.X) / sc)
+				local nh = math.max(380, size0.Y + (p.Y - s0.Y) / sc)
+				holder.Size = UDim2.fromOffset(nw, nh)
+				holder.Position = UDim2.new(p0.X.Scale, p0.X.Offset + (nw - size0.X) * sc / 2, p0.Y.Scale, p0.Y.Offset + (nh - size0.Y) * sc / 2)
+			end
+		end
 	end)
 	W:_conn(UIS.InputChanged:Connect(function(i)
-		if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= TOUCH then return end
-		if W._drag then W._drag(i.Position.X) return end
+		if i.UserInputType ~= MOVE and i.UserInputType ~= TOUCH then return end
+		if tip.Visible then
+			local m = UIS:GetMouseLocation()
+			tip.Position = UDim2.fromOffset(m.X + 14, m.Y + 16)
+		end
+		if W._drag then W._drag(i.Position) return end
 		if dragging then
 			local d = i.Position - dStart
 			holder.Position = UDim2.new(dPos.X.Scale, dPos.X.Offset + d.X, dPos.Y.Scale, dPos.Y.Offset + d.Y)
@@ -746,47 +1268,166 @@ function RedlineX:CreateWindow(opt)
 		if i.KeyCode == W.ToggleKey and W.ToggleKey ~= Enum.KeyCode.Unknown and not UIS:GetFocusedTextBox() and os.clock() > (RedlineX._ignoreUntil or 0) then W:Toggle() end
 	end))
 
+	-- phones/tablets: floating button to open/close (drag it anywhere)
+	if UIS.TouchEnabled and not UIS.KeyboardEnabled then
+		local fab = new("TextButton", { Size = UDim2.fromOffset(48, 48), Position = UDim2.new(0, 14, 0.45, 0), BackgroundColor3 = Color3.new(1, 1, 1), Text = "", AutoButtonColor = false }, gui)
+		corner(fab, 24)
+		accentGradient(fab, 45)
+		stroke(fab, Color3.new(1, 1, 1), 0.6, 1.5)
+		text(fab, { Text = opt.Logo or "R", Size = UDim2.fromScale(1, 1), Font = FONT_BL, TextSize = 20, TextXAlignment = CENTER })
+		local fd, fs, fp, moved
+		fab.InputBegan:Connect(function(i) if i.UserInputType == TOUCH or i.UserInputType == MB1 then fd, fs, fp, moved = true, i.Position, fab.Position, false end end)
+		W:_conn(UIS.InputChanged:Connect(function(i)
+			if fd and (i.UserInputType == TOUCH or i.UserInputType == MOVE) then
+				local d = i.Position - fs
+				if d.Magnitude > 6 then moved = true end
+				fab.Position = UDim2.new(fp.X.Scale, fp.X.Offset + d.X, fp.Y.Scale, fp.Y.Offset + d.Y)
+			end
+		end))
+		W:_conn(UIS.InputEnded:Connect(function(i)
+			if fd and (i.UserInputType == TOUCH or i.UserInputType == MB1) then
+				fd = false
+				if not moved then W:Toggle() end
+			end
+		end))
+	end
+
+	-- dialogs ("are you sure?")
+	function W:Dialog(o)
+		o = o or {}
+		local dim = new("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 50 }, main)
+		corner(dim, 16)
+		local content2 = tostring(o.Content or "")
+		local th = TextService:GetTextSize(content2, 12, FONT, Vector2.new(292, 1000)).Y
+		local box = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(330, 104 + th), BackgroundColor3 = Theme.Surface,
+			ZIndex = 51 }, dim)
+		corner(box, 12)
+		gloss(box)
+		stroke(box, Theme.Accent, 0.5)
+		local bscale = new("UIScale", { Scale = 0.85 }, box)
+		text(box, { Text = o.Title or "Are you sure?", Position = UDim2.fromOffset(18, 14), Size = UDim2.new(1, -36, 0, 20), Font = FONT_BL, TextSize = 16, ZIndex = 52 })
+		text(box, { Text = content2, Position = UDim2.fromOffset(18, 40), Size = UDim2.new(1, -36, 0, th), Font = FONT, TextSize = 12, TextColor3 = Theme.Dim, TextWrapped = true,
+			TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 52 })
+		local row = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 18, 1, -14), Size = UDim2.new(1, -36, 0, 32), BackgroundTransparency = 1, ZIndex = 52 }, box)
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder }, row)
+		local function close()
+			tween(dim, 0.2, { BackgroundTransparency = 1 })
+			tween(bscale, 0.2, { Scale = 0.85 })
+			task.delay(0.2, function() dim:Destroy() end)
+		end
+		for i, b in ipairs(o.Buttons or { { "OK" } }) do
+			local primary = i == 1
+			local btn = new("TextButton", { Size = UDim2.fromOffset(96, 32), BackgroundColor3 = primary and Color3.new(1, 1, 1) or Theme.Surface3, Text = b[1] or "OK", Font = FONT_B,
+				TextSize = 13, TextColor3 = Theme.Text, AutoButtonColor = true, LayoutOrder = i, ZIndex = 53 }, row)
+			corner(btn, 8)
+			if primary then accentGradient(btn) else stroke(btn, Theme.Stroke) end
+			btn.MouseButton1Click:Connect(function() close() if b[2] then task.spawn(b[2]) end end)
+		end
+		tween(dim, 0.25, { BackgroundTransparency = 0.45 })
+		tween(bscale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+		return { Close = close }
+	end
+	closeB.MouseButton1Click:Connect(function()
+		W:Dialog({ Title = "Close " .. title .. "?", Content = "The window and everything it runs will be removed.", Buttons = { { "Close", function() W:Destroy() end }, { "Cancel" } } })
+	end)
+
+	-- watermark: name · fps · ping · time
+	function W:Watermark(on)
+		if on == false then
+			if W._wm then W._wm:Destroy() W._wm = nil end
+			if W._wmConn then W._wmConn:Disconnect() W._wmConn = nil end
+			return
+		end
+		if W._wm then return end
+		local wm = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 56), Size = UDim2.fromOffset(0, 30), AutomaticSize = Enum.AutomaticSize.X,
+			BackgroundColor3 = Theme.Surface, BackgroundTransparency = 0.1 }, gui)
+		corner(wm, 9)
+		gloss(wm)
+		local wst = stroke(wm, Theme.Accent, 0.5)
+		onAccent(function() wst.Color = Theme.Accent end)
+		pad(wm, 8, 12)
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder }, wm)
+		local d = new("Frame", { Size = UDim2.fromOffset(16, 16), BackgroundColor3 = Color3.new(1, 1, 1), LayoutOrder = 1 }, wm)
+		corner(d, 5)
+		accentGradient(d, 45)
+		text(d, { Text = opt.Logo or "R", Size = UDim2.fromScale(1, 1), Font = FONT_BL, TextSize = 10, TextXAlignment = CENTER })
+		local l = text(wm, { Text = title, Size = UDim2.fromOffset(0, 30), AutomaticSize = Enum.AutomaticSize.X, Font = FONT_B, TextSize = 12, LayoutOrder = 2 })
+		W._wm = wm
+		local frames, acc = 0, 0
+		W._wmConn = RunService.RenderStepped:Connect(function(dt)
+			frames += 1
+			acc += dt
+			if acc >= 0.5 then
+				local fps = math.floor(frames / acc + 0.5)
+				frames, acc = 0, 0
+				local ping = 0
+				pcall(function() ping = math.floor(lp:GetNetworkPing() * 1000) end)
+				l.Text = ("%s   |   %d fps   |   %d ms   |   %s"):format(title, fps, ping, os.date("%H:%M:%S"))
+			end
+		end)
+		W:_conn(W._wmConn)
+	end
+
 	-- tabs
+	local function applySearch()
+		if not W.Current then return end
+		local q = search.Text:lower()
+		for _, ch in ipairs(W.Current._container:GetChildren()) do
+			if ch:IsA("GuiObject") then
+				if q == "" then ch.Visible = true
+				elseif ch:GetAttribute("RX_Section") then ch.Visible = false
+				elseif ch:GetAttribute("RX_Name") then ch.Visible = ch:GetAttribute("RX_Name"):lower():find(q, 1, true) ~= nil end
+			end
+		end
+	end
+	search:GetPropertyChangedSignal("Text"):Connect(applySearch)
 	function W:SelectTab(T)
 		for _, t in ipairs(W.Tabs) do
 			local on = t == T
 			t._page.Visible = on
 			local x = t._btn
-			tween(x.sel, 0.25, { BackgroundTransparency = on and 0.82 or 1 })
+			tween(x.b, 0.25, { BackgroundTransparency = on and 0.45 or 1 })
 			tween(x.ind, 0.3, { Size = UDim2.fromOffset(3, on and 18 or 0) }, Enum.EasingStyle.Back)
 			tween(x.nm, 0.2, { TextColor3 = on and Theme.Text or Theme.Dim })
-			tween(x.ic, 0.2, { TextColor3 = on and Theme.Text or Theme.Dim })
+			if x.ic:IsA("ImageLabel") then tween(x.ic, 0.2, { ImageColor3 = on and Theme.Text or Theme.Dim }) else tween(x.ic, 0.2, { TextColor3 = on and Theme.Text or Theme.Dim }) end
 		end
-		T._container.Position = UDim2.fromOffset(12, 70)
-		tween(T._container, 0.35, { Position = UDim2.fromOffset(12, 60) })
+		pageTitle.Text, pageDesc.Text = T._name, T._desc
+		pageTitle.TextTransparency, pageDesc.TextTransparency = 1, 1
+		tween(pageTitle, 0.3, { TextTransparency = 0 })
+		tween(pageDesc, 0.3, { TextTransparency = 0 })
+		T._container.Position = UDim2.fromOffset(16, 10)
+		tween(T._container, 0.35, { Position = UDim2.fromOffset(16, 0) })
 		W.Current = T
+		applySearch()
 	end
 	function W:Tab(o)
 		o = type(o) == "string" and { Name = o } or (o or {})
-		local T = setmetatable({ _window = W, _order = 0 }, Elements)
-		local b = new("TextButton", { Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = Theme.Surface2, BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
+		local T = setmetatable({ _window = W, _order = 0, _name = o.Name or "Tab", _desc = o.Desc or "" }, Elements)
+		local b = new("TextButton", { Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Theme.Surface3, BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
 			LayoutOrder = #W.Tabs + 1 }, tabList)
-		corner(b, 9)
-		local sel = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1 }, b)
-		corner(sel, 9)
-		accentGradient(sel)
-		local ind = new("Frame", { Size = UDim2.fromOffset(3, 0), AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), BackgroundColor3 = Color3.new(1, 1, 1),
+		corner(b, 10)
+		local ind = new("Frame", { Size = UDim2.fromOffset(3, 0), AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 2, 0.5, 0), BackgroundColor3 = Color3.new(1, 1, 1),
 			BorderSizePixel = 0 }, b)
 		corner(ind, 2)
 		accentGradient(ind, 90)
-		local ic = text(b, { Text = o.Icon or "•", Position = UDim2.fromOffset(12, 0), Size = UDim2.fromOffset(22, 38), TextXAlignment = CENTER, TextSize = 15, TextColor3 = Theme.Dim })
-		local nm = text(b, { Text = o.Name or "Tab", Position = UDim2.fromOffset(42, 0), Size = UDim2.new(1, -48, 1, 0), TextSize = 13, TextColor3 = Theme.Dim })
-		b.MouseEnter:Connect(function() if W.Current ~= T then tween(b, 0.15, { BackgroundTransparency = 0.5 }) end end)
-		b.MouseLeave:Connect(function() tween(b, 0.15, { BackgroundTransparency = 1 }) end)
-		local page = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, content)
-		text(page, { Text = o.Name or "Tab", Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -40, 0, 24), Font = FONT_BL, TextSize = 20 })
-		text(page, { Text = o.Desc or "", Position = UDim2.fromOffset(20, 36), Size = UDim2.new(1, -40, 0, 14), Font = FONT, TextSize = 11, TextColor3 = Theme.Dim })
-		local scroll = new("ScrollingFrame", { Position = UDim2.fromOffset(12, 60), Size = UDim2.new(1, -18, 1, -64), BackgroundTransparency = 1, BorderSizePixel = 0,
+		local ic
+		if type(o.Icon) == "string" and o.Icon:find("rbxasset") then
+			ic = new("ImageLabel", { Position = UDim2.fromOffset(16, 11), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1, Image = o.Icon, ImageColor3 = Theme.Dim }, b)
+		else
+			ic = text(b, { Text = o.Icon or "•", Position = UDim2.fromOffset(14, 0), Size = UDim2.fromOffset(22, 40), TextXAlignment = CENTER, TextSize = 15, TextColor3 = Theme.Dim })
+		end
+		local nm = text(b, { Text = T._name, Position = UDim2.fromOffset(46, 0), Size = UDim2.new(1, -52, 1, 0), TextSize = 13, TextColor3 = Theme.Dim })
+		b.MouseEnter:Connect(function() if W.Current ~= T then tween(b, 0.15, { BackgroundTransparency = 0.75 }) end end)
+		b.MouseLeave:Connect(function() if W.Current ~= T then tween(b, 0.15, { BackgroundTransparency = 1 }) end end)
+		local page = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, pages)
+		local scroll = new("ScrollingFrame", { Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -26, 1, -10), BackgroundTransparency = 1, BorderSizePixel = 0,
 			ScrollBarThickness = 3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
 		onAccent(function() scroll.ScrollBarImageColor3 = Theme.Accent end)
-		new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, scroll)
-		pad(scroll, 6, 12, 2, 14)
-		T._container, T._page, T._btn = scroll, page, { b = b, sel = sel, ind = ind, ic = ic, nm = nm }
+		new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, scroll)
+		pad(scroll, 2, 10, 2, 16)
+		T._container, T._page, T._btn = scroll, page, { b = b, ind = ind, ic = ic, nm = nm }
 		b.MouseButton1Click:Connect(function() W:SelectTab(T) end)
 		table.insert(W.Tabs, T)
 		if #W.Tabs == 1 then W:SelectTab(T) end
@@ -795,15 +1436,22 @@ function RedlineX:CreateWindow(opt)
 
 	-- prebuilt settings tab
 	function W:SettingsTab()
-		local T = W:Tab({ Name = "Settings", Icon = "⚙", Desc = "theme, keybind and configs" })
+		local T = W:Tab({ Name = "Settings", Icon = "⚙", Desc = "Themes, keybind and configs" })
 		T:Section("Theme")
-		T:ColorPicker({ Name = "Accent color", Callback = function(c) RedlineX:SetAccent(c) end })
+		local names = {}
+		for n in pairs(RedlineX.Themes) do names[#names + 1] = n end
+		table.sort(names)
+		T:Dropdown({ Name = "Theme preset", Options = names, Default = RedlineX.ThemeName, Callback = function(n) RedlineX:SetTheme(n) end })
+		T:ColorPicker({ Name = "Custom accent", Default = Theme.Accent, Callback = function(c) RedlineX:SetAccent(c) end })
+		T:Slider({ Name = "Glass", Desc = "how see-through the window is", Min = 0, Max = 60, Default = math.floor(glassT * 100), Step = 1, Suffix = "%",
+			Callback = function(v) W:SetTransparency(v / 100) end })
 		T:Section("Interface")
 		T:Keybind({ Name = "Show / hide", Desc = "toggles this window", Default = W.ToggleKey, Changed = function(k) W.ToggleKey = k end })
+		T:Toggle({ Name = "Watermark", Desc = "fps, ping and time in the corner", Default = false, Callback = function(on) W:Watermark(on) end })
 		T:Section("Configs")
 		local cfgName = "default"
 		T:Input({ Name = "Config name", Default = "default", Callback = function(t) if t ~= "" then cfgName = t end end })
-		T:Button({ Name = "Save config", Desc = "saves every flagged setting", Callback = function()
+		T:Button({ Name = "Save config", Desc = "saves every flagged setting + theme", Callback = function()
 			local ok = RedlineX:SaveConfig(cfgName)
 			RedlineX:Notify({ Title = ok and "Config saved" or "Save failed", Content = "RedlineX/" .. cfgName .. ".json", Type = ok and "success" or "error", Duration = 3 })
 		end })
@@ -812,8 +1460,50 @@ function RedlineX:CreateWindow(opt)
 			RedlineX:Notify({ Title = ok and "Config loaded" or "No config found", Content = "RedlineX/" .. cfgName .. ".json", Type = ok and "success" or "warning", Duration = 3 })
 		end })
 		T:Section("Danger zone")
-		T:Button({ Name = "Unload", Desc = "closes and removes the window", Callback = function() W:Destroy() end })
+		T:Button({ Name = "Unload", Desc = "closes and removes the window", Callback = function()
+			W:Dialog({ Title = "Unload?", Content = "This removes the whole window.", Buttons = { { "Unload", function() W:Destroy() end }, { "Cancel" } } })
+		end })
 		return T
+	end
+
+	-- intro: logo + loading bar, then the window pops in
+	local function openWindow()
+		holder.Visible = true
+		scaler.Scale = baseScale * 0.88
+		tween(scaler, 0.5, { Scale = baseScale }, Enum.EasingStyle.Back)
+	end
+	if opt.Intro ~= false then
+		holder.Visible = false
+		local splash = new("CanvasGroup", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(280, 150), BackgroundColor3 = Theme.Surface,
+			GroupTransparency = 1 }, gui)
+		corner(splash, 16)
+		stroke(splash, Theme.Stroke)
+		local sl = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 20), Size = UDim2.fromOffset(52, 52), BackgroundColor3 = Color3.new(1, 1, 1) }, splash)
+		corner(sl, 14)
+		accentGradient(sl, 45)
+		local slScale = new("UIScale", { Scale = 0.6 }, sl)
+		text(sl, { Text = opt.Logo or "R", Size = UDim2.fromScale(1, 1), Font = FONT_BL, TextSize = 26, TextXAlignment = CENTER })
+		text(splash, { Text = title, Position = UDim2.fromOffset(0, 80), Size = UDim2.new(1, 0, 0, 20), Font = FONT_BL, TextSize = 16, TextXAlignment = CENTER })
+		local loadL = text(splash, { Text = "loading…", Position = UDim2.fromOffset(0, 100), Size = UDim2.new(1, 0, 0, 14), Font = FONT, TextSize = 11, TextColor3 = Theme.Dim,
+			TextXAlignment = CENTER })
+		local lb = new("Frame", { Position = UDim2.new(0, 40, 1, -22), Size = UDim2.new(1, -80, 0, 4), BackgroundColor3 = Theme.Surface3, BorderSizePixel = 0 }, splash)
+		corner(lb, 2)
+		local lf = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0 }, lb)
+		corner(lf, 2)
+		accentGradient(lf)
+		task.spawn(function()
+			tween(splash, 0.35, { GroupTransparency = 0 })
+			tween(slScale, 0.6, { Scale = 1 }, Enum.EasingStyle.Back)
+			tween(lf, 1.1, { Size = UDim2.fromScale(1, 1) }, Enum.EasingStyle.Quad)
+			task.wait(1.15)
+			loadL.Text = "ready"
+			tween(splash, 0.3, { GroupTransparency = 1 })
+			task.wait(0.25)
+			splash:Destroy()
+			openWindow()
+		end)
+	else
+		openWindow()
 	end
 
 	return W
