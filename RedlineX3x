@@ -1801,6 +1801,12 @@ end)()
 -- =====================================================================
 local KEY_SERVER = "https://spiritual-shows-usd-align.trycloudflare.com" -- your key bot (tunnel-url.txt)
 local KEY_LINK   = "https://link-hub.net/10000096/WUqKMri29Xpr"         -- your Linkvertise link
+-- When your bot link changes, just edit server.txt on GitHub (no need to re-upload this script).
+local SERVER_TXT = "https://raw.githubusercontent.com/noahhyt202-glitch/RedlineX/refs/heads/main/server.txt"
+pcall(function()
+	local s = game:HttpGet(SERVER_TXT .. "?t=" .. os.time()):match("https://[%w%-%._/]+")
+	if s then KEY_SERVER = s:gsub("/+$", "") end
+end)
 
 -- ===================== key system =====================
 local ok = RedlineX:KeySystem({
